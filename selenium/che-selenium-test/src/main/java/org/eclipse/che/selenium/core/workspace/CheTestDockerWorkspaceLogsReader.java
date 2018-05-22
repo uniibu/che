@@ -31,7 +31,7 @@ public class CheTestDockerWorkspaceLogsReader extends TestWorkspaceLogsReader {
       ImmutableList.of(
           create("ws-agent", Paths.get("/home/user/che/ws-agent/logs")),
           create("exec-agent", Paths.get("/home/user/che/exec-agent/logs")),
-          create("tomcat", Paths.get("/home/user/tomcat8/logs")),
+          create("tomcat", Paths.get("${TOMCAT_HOME}/logs")),
           create("apache", Paths.get("/var/log/apache2")),
           create("traefik", Paths.get("/home/user/che/traefik/log.txt")));
 

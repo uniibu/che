@@ -58,9 +58,9 @@ public class ChangeVariableWithEvaluatingTest {
   private static final String COMMAND_LAUNCHING_TOMCAT_IN_JPDA =
       "cp /projects/"
           + PROJECT_NAME_CHANGE_VARIABLE
-          + "/target/qa-spring-sample-1.0-SNAPSHOT.war /home/user/tomcat8/webapps/ROOT.war"
+          + "/target/qa-spring-sample-1.0-SNAPSHOT.war ${TOMCAT_HOME}/webapps/ROOT.war"
           + " && "
-          + "/home/user/tomcat8/bin/catalina.sh jpda run";
+          + "${TOMCAT_HOME}/bin/catalina.sh jpda run";
 
   private static final String MAVEN_BUILD_COMMAND =
       "mvn clean install -f /projects/" + PROJECT_NAME_CHANGE_VARIABLE;
@@ -101,7 +101,7 @@ public class ChangeVariableWithEvaluatingTest {
         MAVEN_BUILD_COMMAND, BUILD_COMMAND_NAME, TestCommandsConstants.CUSTOM, ws.getId());
 
     String stopTomcatAndCleanWebAppDir =
-        "/home/user/tomcat8/bin/shutdown.sh && rm -rf /home/user/tomcat8/webapps/*";
+        "${TOMCAT_HOME}/bin/shutdown.sh && rm -rf ${TOMCAT_HOME}/webapps/*";
     testCommandServiceClient.createCommand(
         stopTomcatAndCleanWebAppDir,
         CLEAN_TOMCAT_COMMAND_NAME,

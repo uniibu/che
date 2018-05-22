@@ -86,9 +86,9 @@ public class StepIntoStepOverStepReturnWithChangeVariableTest {
     testCommandServiceClient.createCommand(
         "cp /projects/"
             + PROJECT
-            + "/target/qa-spring-sample-1.0-SNAPSHOT.war /home/user/tomcat8/webapps/ROOT.war"
+            + "/target/qa-spring-sample-1.0-SNAPSHOT.war ${TOMCAT_HOME}/webapps/ROOT.war"
             + " && "
-            + "/home/user/tomcat8/bin/catalina.sh jpda run",
+            + "${TOMCAT_HOME}/bin/catalina.sh jpda run",
         START_DEBUG,
         TestCommandsConstants.CUSTOM,
         ws.getId());
@@ -100,7 +100,7 @@ public class StepIntoStepOverStepReturnWithChangeVariableTest {
         ws.getId());
 
     testCommandServiceClient.createCommand(
-        "/home/user/tomcat8/bin/shutdown.sh && rm -rf /home/user/tomcat8/webapps/*",
+        "${TOMCAT_HOME}/bin/shutdown.sh && rm -rf ${TOMCAT_HOME}/webapps/*",
         CLEAN_TOMCAT,
         TestCommandsConstants.CUSTOM,
         ws.getId());
