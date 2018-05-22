@@ -30,7 +30,7 @@
         }
       },
       "recipe": {
-        "location": "eclipse/php",
+        "location": "docker-registry.default.svc:5000/openshift/rhel-php",
         "type": "dockerimage"
       }
     }

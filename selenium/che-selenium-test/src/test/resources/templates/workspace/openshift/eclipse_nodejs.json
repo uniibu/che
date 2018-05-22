@@ -29,7 +29,7 @@
         }
       },
       "recipe": {
-        "location": "eclipse/node",
+        "location": "docker-registry.default.svc:5000/openshift/rhel-node",
         "type": "dockerimage"
       }
     }

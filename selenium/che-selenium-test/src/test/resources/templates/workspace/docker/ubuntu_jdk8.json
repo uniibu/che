@@ -28,7 +28,7 @@
         }
       },
       "recipe": {
-        "content": "eclipse/ubuntu_jdk8",
+        "content": "docker-registry.default.svc:5000/openshift/rhel-base-jdk8",
         "type": "dockerimage"
       }
     }

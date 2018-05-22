@@ -29,7 +29,7 @@
         }
       },
       "recipe": {
-        "content": "eclipse/dotnet_core",
+        "content": "docker-registry.default.svc:5000/openshift/rhel-dotnet",
         "type": "dockerimage"
       }
     }
