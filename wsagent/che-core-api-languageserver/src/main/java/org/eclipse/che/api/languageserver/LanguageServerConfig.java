@@ -10,6 +10,7 @@
  */
 package org.eclipse.che.api.languageserver;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
@@ -34,6 +35,10 @@ public interface LanguageServerConfig {
    * @return regular expression provider
    */
   RegexProvider getRegexpProvider();
+
+  default Map<String, String> getAttributes() {
+    return ImmutableMap.of();
+  };
 
   /**
    * Get a language server communication provider. If there is no need for a custom communication

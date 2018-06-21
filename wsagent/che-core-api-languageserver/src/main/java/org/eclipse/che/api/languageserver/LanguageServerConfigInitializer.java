@@ -11,6 +11,7 @@
 package org.eclipse.che.api.languageserver;
 
 import static java.util.stream.Collectors.toSet;
+import static org.eclipse.che.api.languageserver.WorkspaceConfigProvider.PROJECTS_ROOT_ATTR_NAME;
 
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -43,6 +44,7 @@ class LanguageServerConfigInitializer {
   private final Registry<CommunicationProvider> communicationProviderRegistry;
   private final Registry<Boolean> localityRegistry;
   private final Registry<String> languageFilterRegistry;
+  private final Registry<String> projectsRootRegistry;
   private final Set<LanguageServerConfigProvider> providers;
 
   @Inject
@@ -56,6 +58,7 @@ class LanguageServerConfigInitializer {
     this.communicationProviderRegistry = registryContainer.communicationProviderRegistry;
     this.localityRegistry = registryContainer.localityRegistry;
     this.languageFilterRegistry = registryContainer.languageFilterRegistry;
+    this.projectsRootRegistry = registryContainer.projectsRootRegistry;
   }
 
   void initialize() {
@@ -109,6 +112,11 @@ class LanguageServerConfigInitializer {
         instanceProviderRegistry.add(id, instanceProvider);
         communicationProviderRegistry.add(id, communicationProvider);
         localityRegistry.add(id, isLocal);
+
+        Map<String, String> attributes = config.getAttributes();
+        if (attributes.containsKey(PROJECTS_ROOT_ATTR_NAME)) {
+          projectsRootRegistry.add(id, attributes.get(PROJECTS_ROOT_ATTR_NAME));
+        }
 
         languageRegexes.forEach(languageFilterRegistry::add);
 
