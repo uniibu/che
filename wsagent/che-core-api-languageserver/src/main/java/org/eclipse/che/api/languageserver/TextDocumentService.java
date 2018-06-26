@@ -12,15 +12,11 @@ package org.eclipse.che.api.languageserver;
 
 import static com.google.common.collect.Lists.newLinkedList;
 import static java.util.Collections.emptyList;
-import static org.eclipse.che.api.languageserver.LanguageServiceUtils.isStartWithProject;
-import static org.eclipse.che.api.languageserver.LanguageServiceUtils.prefixProject;
-import static org.eclipse.che.api.languageserver.LanguageServiceUtils.prefixURI;
-import static org.eclipse.che.api.languageserver.LanguageServiceUtils.removePrefixUri;
-import static org.eclipse.che.api.languageserver.LanguageServiceUtils.removeUriScheme;
 
 import com.google.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,11 +96,16 @@ public class TextDocumentService {
 
   private final FindServer findServer;
   private final RequestHandlerConfigurator requestHandler;
+  private LanguageServerPathTransformer languageServerPathTransformer;
 
   @Inject
-  public TextDocumentService(FindServer findServer, RequestHandlerConfigurator requestHandler) {
+  public TextDocumentService(
+      FindServer findServer,
+      RequestHandlerConfigurator requestHandler,
+      LanguageServerPathTransformer languageServerPathTransformer) {
     this.findServer = findServer;
     this.requestHandler = requestHandler;
+    this.languageServerPathTransformer = languageServerPathTransformer;
   }
 
   @PostConstruct
@@ -163,8 +164,6 @@ public class TextDocumentService {
   private List<CommandDto> codeAction(CodeActionParams params) {
     TextDocumentIdentifier textDocument = params.getTextDocument();
     String wsPath = textDocument.getUri();
-    String uri = prefixURI(wsPath);
-    textDocument.setUri(uri);
     List<CommandDto> result = new ArrayList<>();
     Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
     LSOperation<ExtendedLanguageServer, List<? extends Command>> op =
@@ -196,9 +195,6 @@ public class TextDocumentService {
       TextDocumentPositionParams textDocumentPositionParams) {
     TextDocumentIdentifier textDocument = textDocumentPositionParams.getTextDocument();
     String wsPath = textDocument.getUri();
-    String uri = prefixURI(wsPath);
-    textDocument.setUri(uri);
-    textDocumentPositionParams.setUri(prefixURI(textDocumentPositionParams.getUri()));
 
     ExtendedCompletionListDto[] result = new ExtendedCompletionListDto[1];
     result[0] = new ExtendedCompletionListDto();
@@ -251,8 +247,6 @@ public class TextDocumentService {
 
   private List<SymbolInformationDto> documentSymbol(DocumentSymbolParams documentSymbolParams) {
     String wsPath = documentSymbolParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    documentSymbolParams.getTextDocument().setUri(uri);
     List<SymbolInformationDto> result = new ArrayList<>();
     Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
 
@@ -267,17 +261,22 @@ public class TextDocumentService {
 
           @Override
           public CompletableFuture<List<? extends SymbolInformation>> start(
-              ExtendedLanguageServer element) {
-            return element.getTextDocumentService().documentSymbol(documentSymbolParams);
+              ExtendedLanguageServer server) {
+            URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+            documentSymbolParams.getTextDocument().setUri(uri.toString());
+
+            return server.getTextDocumentService().documentSymbol(documentSymbolParams);
           }
 
           @Override
           public boolean handleResult(
-              ExtendedLanguageServer element, List<? extends SymbolInformation> locations) {
+              ExtendedLanguageServer server, List<? extends SymbolInformation> locations) {
             locations.forEach(
-                o -> {
-                  o.getLocation().setUri(removePrefixUri(o.getLocation().getUri()));
-                  result.add(new SymbolInformationDto(o));
+                location -> {
+                  String uri = location.getLocation().getUri();
+                  String wsPath = languageServerPathTransformer.toWsPath(uri, server.getId());
+                  location.getLocation().setUri(wsPath);
+                  result.add(new SymbolInformationDto(location));
                 });
             return true;
           }
@@ -288,8 +287,6 @@ public class TextDocumentService {
 
   private List<LocationDto> references(ReferenceParams referenceParams) {
     String wsPath = referenceParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    referenceParams.getTextDocument().setUri(uri);
     List<LocationDto> result = new ArrayList<>();
     Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
     OperationUtil.doInParallel(
@@ -302,17 +299,22 @@ public class TextDocumentService {
           }
 
           @Override
-          public CompletableFuture<List<? extends Location>> start(ExtendedLanguageServer element) {
-            return element.getTextDocumentService().references(referenceParams);
+          public CompletableFuture<List<? extends Location>> start(ExtendedLanguageServer server) {
+            URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+            referenceParams.getTextDocument().setUri(uri.toString());
+
+            return server.getTextDocumentService().references(referenceParams);
           }
 
           @Override
           public boolean handleResult(
-              ExtendedLanguageServer element, List<? extends Location> locations) {
+              ExtendedLanguageServer server, List<? extends Location> locations) {
             locations.forEach(
-                o -> {
-                  o.setUri(removePrefixUri(o.getUri()));
-                  result.add(new LocationDto(o));
+                location -> {
+                  String uri = location.getUri();
+                  String wsPath = languageServerPathTransformer.toWsPath(uri, server.getId());
+                  location.setUri(wsPath);
+                  result.add(new LocationDto(location));
                 });
             return true;
           }
@@ -323,8 +325,6 @@ public class TextDocumentService {
 
   private List<LocationDto> definition(TextDocumentPositionParams textDocumentPositionParams) {
     String wsPath = textDocumentPositionParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    textDocumentPositionParams.getTextDocument().setUri(uri);
     Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
     List<LocationDto> result = new ArrayList<>();
     OperationUtil.doInParallel(
@@ -338,16 +338,20 @@ public class TextDocumentService {
 
           @Override
           public CompletableFuture<List<? extends Location>> start(ExtendedLanguageServer element) {
+            URI uri = languageServerPathTransformer.resolve(wsPath, element.getId());
+            textDocumentPositionParams.getTextDocument().setUri(uri.toString());
             return element.getTextDocumentService().definition(textDocumentPositionParams);
           }
 
           @Override
           public boolean handleResult(
-              ExtendedLanguageServer element, List<? extends Location> locations) {
+              ExtendedLanguageServer server, List<? extends Location> locations) {
             locations.forEach(
-                o -> {
-                  o.setUri(removePrefixUri(o.getUri()));
-                  result.add(new LocationDto(o));
+                location -> {
+                  String uri = location.getUri();
+                  String wsPath = languageServerPathTransformer.toWsPath(uri, server.getId());
+                  location.setUri(wsPath);
+                  result.add(new LocationDto(location));
                 });
             return true;
           }
@@ -379,13 +383,10 @@ public class TextDocumentService {
 
   private HoverDto hover(TextDocumentPositionParams positionParams) {
     String wsPath = positionParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    positionParams.getTextDocument().setUri(uri);
-    positionParams.setUri(prefixURI(positionParams.getUri()));
     HoverDto result = new HoverDto();
     result.setContents(new ArrayList<>());
 
-    Set<ExtendedLanguageServer> servers = findServer.byPath(uri);
+    Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
     OperationUtil.doInParallel(
         servers,
         new LSOperation<ExtendedLanguageServer, Hover>() {
@@ -396,8 +397,15 @@ public class TextDocumentService {
           }
 
           @Override
-          public CompletableFuture<Hover> start(ExtendedLanguageServer element) {
-            return element.getTextDocumentService().hover(positionParams);
+          public CompletableFuture<Hover> start(ExtendedLanguageServer server) {
+            URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+            positionParams.getTextDocument().setUri(uri.toString());
+
+            URI oldUri =
+                languageServerPathTransformer.resolve(positionParams.getUri(), server.getId());
+            positionParams.setUri(oldUri.toString());
+
+            return server.getTextDocumentService().hover(positionParams);
           }
 
           @Override
@@ -415,9 +423,6 @@ public class TextDocumentService {
 
   private SignatureHelpDto signatureHelp(TextDocumentPositionParams positionParams) {
     String wsPath = positionParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    positionParams.getTextDocument().setUri(uri);
-    positionParams.setUri(prefixURI(positionParams.getUri()));
     SignatureHelpDto[] result = new SignatureHelpDto[1];
     Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
     LSOperation<ExtendedLanguageServer, SignatureHelp> op =
@@ -429,8 +434,15 @@ public class TextDocumentService {
           }
 
           @Override
-          public CompletableFuture<SignatureHelp> start(ExtendedLanguageServer element) {
-            return element.getTextDocumentService().signatureHelp(positionParams);
+          public CompletableFuture<SignatureHelp> start(ExtendedLanguageServer server) {
+            URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+            positionParams.getTextDocument().setUri(uri.toString());
+
+            URI oldUri =
+                languageServerPathTransformer.resolve(positionParams.getUri(), server.getId());
+            positionParams.setUri(oldUri.toString());
+
+            return server.getTextDocumentService().signatureHelp(positionParams);
           }
 
           @Override
@@ -449,8 +461,6 @@ public class TextDocumentService {
   private List<TextEditDto> formatting(DocumentFormattingParams documentFormattingParams) {
     try {
       String wsPath = documentFormattingParams.getTextDocument().getUri();
-      String uri = prefixURI(wsPath);
-      documentFormattingParams.getTextDocument().setUri(uri);
       Optional<ExtendedLanguageServer> serverOptional =
           findServer
               .byPath(wsPath)
@@ -458,6 +468,8 @@ public class TextDocumentService {
               .filter(s -> truish(s.getCapabilities().getDocumentFormattingProvider()))
               .findFirst();
       if (serverOptional.isPresent()) {
+        URI uri = languageServerPathTransformer.resolve(wsPath, serverOptional.get().getId());
+        documentFormattingParams.getTextDocument().setUri(uri.toString());
         return serverOptional
             .get()
             .getTextDocumentService()
@@ -478,8 +490,6 @@ public class TextDocumentService {
       DocumentRangeFormattingParams documentRangeFormattingParams) {
     try {
       String wsPath = documentRangeFormattingParams.getTextDocument().getUri();
-      String uri = prefixURI(wsPath);
-      documentRangeFormattingParams.getTextDocument().setUri(uri);
       Optional<ExtendedLanguageServer> serverOptional =
           findServer
               .byPath(wsPath)
@@ -487,6 +497,8 @@ public class TextDocumentService {
               .filter(s -> truish(s.getCapabilities().getDocumentRangeFormattingProvider()))
               .findFirst();
       if (serverOptional.isPresent()) {
+        URI uri = languageServerPathTransformer.resolve(wsPath, serverOptional.get().getId());
+        documentRangeFormattingParams.getTextDocument().setUri(uri.toString());
         return serverOptional
             .get()
             .getTextDocumentService()
@@ -508,8 +520,6 @@ public class TextDocumentService {
       DocumentOnTypeFormattingParams documentOnTypeFormattingParams) {
     try {
       String wsPath = documentOnTypeFormattingParams.getTextDocument().getUri();
-      String uri = prefixURI(wsPath);
-      documentOnTypeFormattingParams.getTextDocument().setUri(uri);
       Optional<ExtendedLanguageServer> serverOptional =
           findServer
               .byPath(wsPath)
@@ -517,6 +527,9 @@ public class TextDocumentService {
               .filter(it -> it.getCapabilities().getDocumentOnTypeFormattingProvider() != null)
               .findFirst();
       if (serverOptional.isPresent()) {
+        URI uri = languageServerPathTransformer.resolve(wsPath, serverOptional.get().getId());
+        documentOnTypeFormattingParams.getTextDocument().setUri(uri.toString());
+
         return serverOptional
             .get()
             .getTextDocumentService()
@@ -535,46 +548,63 @@ public class TextDocumentService {
 
   private void didChange(DidChangeTextDocumentParams didChangeTextDocumentParams) {
     String wsPath = didChangeTextDocumentParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    didChangeTextDocumentParams.getTextDocument().setUri(uri);
-    didChangeTextDocumentParams.setUri(prefixURI(didChangeTextDocumentParams.getUri()));
+
     findServer
         .byPath(wsPath)
-        .forEach(server -> server.getTextDocumentService().didChange(didChangeTextDocumentParams));
+        .forEach(
+            server -> {
+              URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+              didChangeTextDocumentParams.getTextDocument().setUri(uri.toString());
+
+              URI oldUri =
+                  languageServerPathTransformer.resolve(
+                      didChangeTextDocumentParams.getUri(), server.getId());
+              didChangeTextDocumentParams.setUri(oldUri.toString());
+
+              server.getTextDocumentService().didChange(didChangeTextDocumentParams);
+            });
   }
 
   private void didOpen(DidOpenTextDocumentParams openTextDocumentParams) {
     String wsPath = openTextDocumentParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    openTextDocumentParams.getTextDocument().setUri(uri);
     findServer
         .byPath(wsPath)
-        .forEach(server -> server.getTextDocumentService().didOpen(openTextDocumentParams));
+        .forEach(
+            server -> {
+              URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+              openTextDocumentParams.getTextDocument().setUri(uri.toString());
+              server.getTextDocumentService().didOpen(openTextDocumentParams);
+            });
   }
 
   private void didClose(DidCloseTextDocumentParams didCloseTextDocumentParams) {
     String wsPath = didCloseTextDocumentParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    didCloseTextDocumentParams.getTextDocument().setUri(uri);
     findServer
         .byPath(wsPath)
-        .forEach(server -> server.getTextDocumentService().didClose(didCloseTextDocumentParams));
+        .forEach(
+            server -> {
+              URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+              didCloseTextDocumentParams.getTextDocument().setUri(uri.toString());
+              server.getTextDocumentService().didClose(didCloseTextDocumentParams);
+            });
   }
 
   private void didSave(DidSaveTextDocumentParams didSaveTextDocumentParams) {
     String wsPath = didSaveTextDocumentParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    didSaveTextDocumentParams.getTextDocument().setUri(uri);
     findServer
         .byPath(wsPath)
-        .forEach(server -> server.getTextDocumentService().didSave(didSaveTextDocumentParams));
+        .forEach(
+            server -> {
+              URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+              didSaveTextDocumentParams.getTextDocument().setUri(uri.toString());
+              server.getTextDocumentService().didSave(didSaveTextDocumentParams);
+            });
   }
 
   private DocumentHighlightDto documentHighlight(
       TextDocumentPositionParams textDocumentPositionParams) {
     String wsPath = textDocumentPositionParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    textDocumentPositionParams.getTextDocument().setUri(uri);
+
     @SuppressWarnings("unchecked")
     List<DocumentHighlightDto>[] result = new List[1];
     LSOperation<ExtendedLanguageServer, List<DocumentHighlightDto>> op =
@@ -601,8 +631,11 @@ public class TextDocumentService {
 
                         @Override
                         public CompletableFuture<List<? extends DocumentHighlight>> start(
-                            ExtendedLanguageServer element) {
-                          return element
+                            ExtendedLanguageServer server) {
+                          URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+                          textDocumentPositionParams.getTextDocument().setUri(uri.toString());
+
+                          return server
                               .getTextDocumentService()
                               .documentHighlight(textDocumentPositionParams);
                         }
@@ -638,8 +671,6 @@ public class TextDocumentService {
 
   private RenameResultDto rename(RenameParams renameParams) {
     String wsPath = renameParams.getTextDocument().getUri();
-    String uri = prefixURI(wsPath);
-    renameParams.getTextDocument().setUri(uri);
     Map<String, ExtendedWorkspaceEdit> edits = new ConcurrentHashMap<>();
     Set<ExtendedLanguageServer> servers = findServer.byPath(wsPath);
     LSOperation<ExtendedLanguageServer, WorkspaceEdit> op =
@@ -651,14 +682,16 @@ public class TextDocumentService {
           }
 
           @Override
-          public CompletableFuture<WorkspaceEdit> start(ExtendedLanguageServer element) {
-            return element.getTextDocumentService().rename(renameParams);
+          public CompletableFuture<WorkspaceEdit> start(ExtendedLanguageServer server) {
+            URI uri = languageServerPathTransformer.resolve(wsPath, server.getId());
+            renameParams.getTextDocument().setUri(uri.toString());
+            return server.getTextDocumentService().rename(renameParams);
           }
 
           @Override
-          public boolean handleResult(ExtendedLanguageServer element, WorkspaceEdit result) {
+          public boolean handleResult(ExtendedLanguageServer server, WorkspaceEdit result) {
 
-            addRenameResult(edits, element.getId(), result);
+            addRenameResult(server, edits, server.getId(), result);
             return true;
           }
         };
@@ -667,7 +700,10 @@ public class TextDocumentService {
   }
 
   private void addRenameResult(
-      Map<String, ExtendedWorkspaceEdit> map, String id, WorkspaceEdit workspaceEdit) {
+      ExtendedLanguageServer server,
+      Map<String, ExtendedWorkspaceEdit> map,
+      String id,
+      WorkspaceEdit workspaceEdit) {
 
     ExtendedWorkspaceEdit result = new ExtendedWorkspaceEdit();
     List<ExtendedTextDocumentEdit> edits = new ArrayList<>();
@@ -675,10 +711,13 @@ public class TextDocumentService {
       for (TextDocumentEdit documentEdit : workspaceEdit.getDocumentChanges()) {
         ExtendedTextDocumentEdit edit = new ExtendedTextDocumentEdit();
         edit.setTextDocument(documentEdit.getTextDocument());
-        edit.getTextDocument().setUri(removePrefixUri(edit.getTextDocument().getUri()));
-        edit.setEdits(
-            convertToExtendedEdit(
-                documentEdit.getEdits(), removeUriScheme(documentEdit.getTextDocument().getUri())));
+        String uri = edit.getTextDocument().getUri();
+        String wsPath = languageServerPathTransformer.toWsPath(uri, server.getId());
+        edit.getTextDocument().setUri(wsPath);
+
+        String documentEditUri = documentEdit.getTextDocument().getUri();
+        String path = languageServerPathTransformer.toPath(documentEditUri);
+        edit.setEdits(convertToExtendedEdit(server, documentEdit.getEdits(), path));
         edits.add(edit);
       }
     } else if (workspaceEdit.getChanges() != null) {
@@ -686,9 +725,12 @@ public class TextDocumentService {
         ExtendedTextDocumentEdit edit = new ExtendedTextDocumentEdit();
         VersionedTextDocumentIdentifier documentIdentifier = new VersionedTextDocumentIdentifier();
         documentIdentifier.setVersion(-1);
-        documentIdentifier.setUri(removePrefixUri(entry.getKey()));
+        String uri = entry.getKey();
+        String wsPath = languageServerPathTransformer.toWsPath(uri, server.getId());
+        documentIdentifier.setUri(wsPath);
         edit.setTextDocument(documentIdentifier);
-        edit.setEdits(convertToExtendedEdit(entry.getValue(), removeUriScheme(entry.getKey())));
+        String path = languageServerPathTransformer.toPath(uri);
+        edit.setEdits(convertToExtendedEdit(server, entry.getValue(), path));
         edits.add(edit);
       }
     }
@@ -699,11 +741,13 @@ public class TextDocumentService {
     }
   }
 
-  private List<ExtendedTextEdit> convertToExtendedEdit(List<TextEdit> edits, String filePath) {
+  private List<ExtendedTextEdit> convertToExtendedEdit(
+      ExtendedLanguageServer server, List<TextEdit> edits, String filePath) {
     try {
       // for some reason C# LS sends ws related path,
-      if (!isStartWithProject(filePath)) {
-        filePath = prefixProject(filePath);
+
+      if (!languageServerPathTransformer.isAbsolute(filePath, server.getId())) {
+        filePath = languageServerPathTransformer.addProjectsRoot(filePath, server.getId());
       }
       String fileContent =
           com.google.common.io.Files.toString(new File(filePath), Charset.defaultCharset());

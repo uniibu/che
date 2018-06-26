@@ -41,13 +41,16 @@ public class LanguageServerFileWatcherTest {
   @Mock private LanguageServer languageServer;
   @Mock private LanguageServerInitializedEvent languageServerInitializedEvent;
   @Mock private PathMatcher pathMatcher;
+  @Mock private LanguageServerPathTransformer languageServerPathTransformer;
 
   @BeforeMethod
   public void setUp() {
     registryContainer = new RegistryContainer();
     eventService = new EventService();
 
-    new LanguageServerFileWatcher(watcherManager, eventService, registryContainer).subscribe();
+    new LanguageServerFileWatcher(
+            watcherManager, eventService, registryContainer, languageServerPathTransformer)
+        .subscribe();
 
     when(languageServerInitializedEvent.getId()).thenReturn(ID);
     when(languageServerInitializedEvent.getLanguageServer()).thenReturn(languageServer);

@@ -18,6 +18,7 @@ import static org.eclipse.che.maven.data.MavenConstants.POM_FILE_NAME;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +38,7 @@ import org.eclipse.che.api.editor.server.impl.EditorWorkingCopy;
 import org.eclipse.che.api.editor.server.impl.EditorWorkingCopyManager;
 import org.eclipse.che.api.editor.server.impl.EditorWorkingCopyUpdatedEvent;
 import org.eclipse.che.api.languageserver.CheLanguageClientFactory;
-import org.eclipse.che.api.languageserver.LanguageServiceUtils;
+import org.eclipse.che.api.languageserver.LanguageServerPathTransformer;
 import org.eclipse.che.api.project.shared.dto.EditorChangesDto;
 import org.eclipse.che.commons.xml.XMLTreeException;
 import org.eclipse.che.dto.server.DtoFactory;
@@ -77,17 +78,20 @@ public class PomReconciler {
   private EventService eventService;
   private EventSubscriber<EditorWorkingCopyUpdatedEvent> editorContentUpdateEventSubscriber;
   private LanguageClient client;
+  private final LanguageServerPathTransformer languageServerPathTransformer;
 
   @Inject
   public PomReconciler(
       MavenProjectManager mavenProjectManager,
       EditorWorkingCopyManager editorWorkingCopyManager,
       EventService eventService,
-      CheLanguageClientFactory cheLanguageClientFactory) {
+      CheLanguageClientFactory cheLanguageClientFactory,
+      LanguageServerPathTransformer languageServerPathTransformer) {
     this.mavenProjectManager = mavenProjectManager;
     this.editorWorkingCopyManager = editorWorkingCopyManager;
     this.eventService = eventService;
     this.client = cheLanguageClientFactory.create("maven-language-server");
+    this.languageServerPathTransformer = languageServerPathTransformer;
 
     editorContentUpdateEventSubscriber =
         new EventSubscriber<EditorWorkingCopyUpdatedEvent>() {
@@ -190,8 +194,8 @@ public class PomReconciler {
     try {
       problems = reconcile(fileLocation, projectPath, newPomContent);
       List<Diagnostic> diagnostics = convertProblems(newPomContent, problems);
-      client.publishDiagnostics(
-          new PublishDiagnosticsParams(LanguageServiceUtils.prefixURI(fileLocation), diagnostics));
+      URI uri = languageServerPathTransformer.resolve(fileLocation, "");
+      client.publishDiagnostics(new PublishDiagnosticsParams(uri.toString(), diagnostics));
     } catch (ServerException | NotFoundException e) {
       LOG.error(e.getMessage(), e);
       client.showMessage(new MessageParams(MessageType.Error, "Error reconciling " + fileLocation));
@@ -219,8 +223,8 @@ public class PomReconciler {
 
   public void reconcileUri(String uri, String text) {
     try {
-      String pomPath = LanguageServiceUtils.removePrefixUri(uri);
-      List<Problem> problems = reconcile(pomPath, new File(pomPath).getParent(), text);
+      String pomWsPath = languageServerPathTransformer.toWsPath(uri, "");
+      List<Problem> problems = reconcile(pomWsPath, new File(pomWsPath).getParent(), text);
       List<Diagnostic> diagnostics = convertProblems(text, problems);
       client.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
     } catch (ServerException | NotFoundException e) {

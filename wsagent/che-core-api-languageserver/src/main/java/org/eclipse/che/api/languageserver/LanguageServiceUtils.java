@@ -20,34 +20,7 @@ package org.eclipse.che.api.languageserver;
  */
 public class LanguageServiceUtils {
 
-  private static final String PROJECTS = "/projects";
-  private static final String FILE_PROJECTS = "file:///projects";
-
-  public static String prefixURI(String relativePath) {
-    return FILE_PROJECTS + relativePath;
-  }
-
-  public static String removePrefixUri(String uri) {
-    return uri.startsWith(FILE_PROJECTS) ? uri.substring(FILE_PROJECTS.length()) : uri;
-  }
-
-  public static String removeUriScheme(String uri) {
-    return uri.startsWith(FILE_PROJECTS) ? uri.substring("file://".length()) : uri;
-  }
-
   public static boolean truish(Boolean b) {
     return b != null && b;
-  }
-
-  public static boolean isProjectUri(String path) {
-    return path.startsWith(FILE_PROJECTS);
-  }
-
-  public static boolean isStartWithProject(String path) {
-    return path.startsWith(PROJECTS);
-  }
-
-  public static String prefixProject(String path) {
-    return path.startsWith(PROJECTS) ? path : PROJECTS + path;
   }
 }

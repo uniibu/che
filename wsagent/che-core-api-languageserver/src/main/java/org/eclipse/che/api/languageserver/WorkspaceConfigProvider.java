@@ -104,7 +104,11 @@ class WorkspaceConfigProvider implements LanguageServerConfigProvider {
 
                 @Override
                 public Map<String, String> getAttributes() {
-                  return ImmutableMap.of(PROJECTS_ROOT_ATTR_NAME, projectsRoot);
+                  if (projectsRoot == null) {
+                    return ImmutableMap.of();
+                  } else {
+                    return ImmutableMap.of(PROJECTS_ROOT_ATTR_NAME, projectsRoot);
+                  }
                 }
 
                 @Override

@@ -10,9 +10,8 @@
  */
 package org.eclipse.che.api.languageserver;
 
-import static org.eclipse.che.api.languageserver.LanguageServiceUtils.prefixURI;
-
 import com.google.common.annotations.VisibleForTesting;
+import java.net.URI;
 import java.nio.file.PathMatcher;
 import java.util.Collections;
 import java.util.Set;
@@ -46,15 +45,18 @@ class LanguageServerFileWatcher {
   private final EventService eventService;
   private final CopyOnWriteArrayList<Integer> watcherIds = new CopyOnWriteArrayList<>();
   private final Registry<Set<PathMatcher>> pathMatcherRegistry;
+  private final LanguageServerPathTransformer languageServerPathTransformer;
 
   @Inject
   LanguageServerFileWatcher(
       FileWatcherManager watcherManager,
       EventService eventService,
-      RegistryContainer registryContainer) {
+      RegistryContainer registryContainer,
+      LanguageServerPathTransformer languageServerPathTransformer) {
     this.watcherManager = watcherManager;
     this.eventService = eventService;
     this.pathMatcherRegistry = registryContainer.pathMatcherRegistry;
+    this.languageServerPathTransformer = languageServerPathTransformer;
   }
 
   @PostConstruct
@@ -62,10 +64,11 @@ class LanguageServerFileWatcher {
     eventService.subscribe(this::onServerInitialized, LanguageServerInitializedEvent.class);
   }
 
-  private void send(LanguageServer server, String filePath, FileChangeType changeType) {
+  private void send(LanguageServer server, String filePath, String id, FileChangeType changeType) {
+    URI resolvedUri = languageServerPathTransformer.resolve(filePath, id);
     DidChangeWatchedFilesParams params =
         new DidChangeWatchedFilesParams(
-            Collections.singletonList(new FileEvent(prefixURI(filePath), changeType)));
+            Collections.singletonList(new FileEvent(resolvedUri.getPath(), changeType)));
     server.getWorkspaceService().didChangeWatchedFiles(params);
   }
 
@@ -92,9 +95,9 @@ class LanguageServerFileWatcher {
       int watcherId =
           watcherManager.registerByMatcher(
               pathMatcher,
-              s -> send(languageServer, s, FileChangeType.Created),
-              s -> send(languageServer, s, FileChangeType.Changed),
-              s -> send(languageServer, s, FileChangeType.Deleted));
+              s -> send(languageServer, s, id, FileChangeType.Created),
+              s -> send(languageServer, s, id, FileChangeType.Changed),
+              s -> send(languageServer, s, id, FileChangeType.Deleted));
 
       watcherIds.add(watcherId);
     }
