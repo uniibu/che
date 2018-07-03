@@ -18,15 +18,19 @@ import java.util.Map;
 import java.util.Set;
 import org.eclipse.che.api.languageserver.EmptyCommunicationProvider;
 import org.eclipse.che.api.languageserver.LanguageServerConfig;
+import org.eclipse.che.api.project.server.impl.RootDirPathProvider;
 import org.eclipse.lsp4j.services.LanguageServer;
 
 @Singleton
 public class MavenLanguageServerConfig implements LanguageServerConfig {
 
+  private final RootDirPathProvider rootDirPathProvider;
   private final LanguageServer mavenLanguageServer;
 
   @Inject
-  public MavenLanguageServerConfig(MavenLanguageServer mavenLanguageServer) {
+  public MavenLanguageServerConfig(
+      RootDirPathProvider rootDirPathProvider, MavenLanguageServer mavenLanguageServer) {
+    this.rootDirPathProvider = rootDirPathProvider;
     this.mavenLanguageServer = mavenLanguageServer;
   }
 
@@ -68,5 +72,10 @@ public class MavenLanguageServerConfig implements LanguageServerConfig {
         return null;
       }
     };
+  }
+
+  @Override
+  public String getProjectsRoot() {
+    return rootDirPathProvider.get();
   }
 }

@@ -32,6 +32,7 @@ import org.eclipse.che.api.core.model.workspace.Runtime;
 import org.eclipse.che.api.core.model.workspace.runtime.Machine;
 import org.eclipse.che.api.core.model.workspace.runtime.Server;
 import org.eclipse.che.api.languageserver.LanguageServerConfig.CommunicationProvider;
+import org.eclipse.che.api.project.server.impl.RootDirPathProvider;
 import org.eclipse.che.api.project.server.impl.WorkspaceProjectSynchronizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,17 +45,22 @@ import org.slf4j.LoggerFactory;
 @Singleton
 class WorkspaceConfigProvider implements LanguageServerConfigProvider {
   private static final Logger LOG = LoggerFactory.getLogger(WorkspaceConfigProvider.class);
-  public static final String PROJECTS_ROOT_ATTR_NAME = "projectsRoot";
+  private static final String PROJECTS_ROOT_ATTR_NAME = "projectsRoot";
 
   private final Runtime workspaceRuntime;
   private final ConfigExtractor configExtractor;
+  private final RootDirPathProvider rootDirPathProvider;
 
   @Inject
-  WorkspaceConfigProvider(WorkspaceProjectSynchronizer workspace, JsonParser jsonParser)
+  WorkspaceConfigProvider(
+      WorkspaceProjectSynchronizer workspace,
+      JsonParser jsonParser,
+      RootDirPathProvider rootDirPathProvider)
       throws ServerException {
 
     this.workspaceRuntime = workspace.getRuntime();
     this.configExtractor = new ConfigExtractor(jsonParser);
+    this.rootDirPathProvider = rootDirPathProvider;
   }
 
   @Override
@@ -103,15 +109,6 @@ class WorkspaceConfigProvider implements LanguageServerConfigProvider {
                 }
 
                 @Override
-                public Map<String, String> getAttributes() {
-                  if (projectsRoot == null) {
-                    return ImmutableMap.of();
-                  } else {
-                    return ImmutableMap.of(PROJECTS_ROOT_ATTR_NAME, projectsRoot);
-                  }
-                }
-
-                @Override
                 public CommunicationProvider getCommunicationProvider() {
                   return communicationProvider;
                 }
@@ -119,6 +116,11 @@ class WorkspaceConfigProvider implements LanguageServerConfigProvider {
                 @Override
                 public InstanceProvider getInstanceProvider() {
                   return DefaultInstanceProvider.getInstance();
+                }
+
+                @Override
+                public String getProjectsRoot() {
+                  return projectsRoot == null ? rootDirPathProvider.get() : projectsRoot;
                 }
               });
 

@@ -30,6 +30,7 @@ import org.eclipse.che.api.languageserver.LanguageServerConfig;
 import org.eclipse.che.api.languageserver.LanguageServerException;
 import org.eclipse.che.api.languageserver.LanguageServerInitializedEvent;
 import org.eclipse.che.api.languageserver.ProcessCommunicationProvider;
+import org.eclipse.che.api.project.server.impl.RootDirPathProvider;
 import org.eclipse.che.commons.lang.IoUtil;
 import org.eclipse.che.plugin.csharp.inject.CSharpModule;
 import org.slf4j.Logger;
@@ -42,13 +43,18 @@ public class CSharpLanguageServerConfig implements LanguageServerConfig {
 
   private static final String REGEX = ".*\\.(cs|csx)";
 
+  private final RootDirPathProvider rootDirPathProvider;
   private final EventService eventService;
   private final PathTransformer pathTransformer;
 
   private final Path launchScript;
 
   @Inject
-  public CSharpLanguageServerConfig(EventService eventService, PathTransformer pathTransformer) {
+  public CSharpLanguageServerConfig(
+      RootDirPathProvider rootDirPathProvider,
+      EventService eventService,
+      PathTransformer pathTransformer) {
+    this.rootDirPathProvider = rootDirPathProvider;
     this.eventService = eventService;
     this.pathTransformer = pathTransformer;
 
@@ -144,5 +150,10 @@ public class CSharpLanguageServerConfig implements LanguageServerConfig {
         return isSuccessfullyInstalled() ? null : "Launch script file does not exist";
       }
     };
+  }
+
+  @Override
+  public String getProjectsRoot() {
+    return rootDirPathProvider.get();
   }
 }

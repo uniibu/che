@@ -21,6 +21,7 @@ import javax.inject.Singleton;
 import org.eclipse.che.api.languageserver.DefaultInstanceProvider;
 import org.eclipse.che.api.languageserver.LanguageServerConfig;
 import org.eclipse.che.api.languageserver.ProcessCommunicationProvider;
+import org.eclipse.che.api.project.server.impl.RootDirPathProvider;
 import org.eclipse.che.plugin.test.ls.inject.TestLSModule;
 
 /**
@@ -31,9 +32,11 @@ import org.eclipse.che.plugin.test.ls.inject.TestLSModule;
 @Singleton
 public class TestLanguageServerConfig implements LanguageServerConfig {
   private final Path launchScript;
+  private final RootDirPathProvider rootDirPathProvider;
 
   @Inject
-  public TestLanguageServerConfig() {
+  public TestLanguageServerConfig(RootDirPathProvider rootDirPathProvider) {
+    this.rootDirPathProvider = rootDirPathProvider;
     launchScript = Paths.get(System.getenv("HOME"), "che/test-ls/launch.sh");
   }
 
@@ -79,5 +82,10 @@ public class TestLanguageServerConfig implements LanguageServerConfig {
         return isSuccessfullyInstalled() ? null : "Launch script file does not exist";
       }
     };
+  }
+
+  @Override
+  public String getProjectsRoot() {
+    return rootDirPathProvider.get();
   }
 }

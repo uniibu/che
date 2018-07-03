@@ -21,6 +21,7 @@ import java.util.Set;
 import org.eclipse.che.api.languageserver.DefaultInstanceProvider;
 import org.eclipse.che.api.languageserver.LanguageServerConfig;
 import org.eclipse.che.api.languageserver.ProcessCommunicationProvider;
+import org.eclipse.che.api.project.server.impl.RootDirPathProvider;
 import org.eclipse.plugin.clangd.inject.ClangModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +37,11 @@ public class ClangDLanguageServerConfig implements LanguageServerConfig {
   private static final String REGEX = ".*\\.(c|h|cc|hh|cpp|hpp|cxx|hxx|C|H|CC|HH|CPP|HPP|CXX|HXX)";
 
   private final Path launchScript;
+  private final RootDirPathProvider rootDirPathProvider;
 
   @Inject
-  public ClangDLanguageServerConfig() {
+  public ClangDLanguageServerConfig(RootDirPathProvider rootDirPathProvider) {
+    this.rootDirPathProvider = rootDirPathProvider;
     launchScript = Paths.get(System.getenv("HOME"), "che/ls-clangd/launch.sh");
   }
 
@@ -86,5 +89,10 @@ public class ClangDLanguageServerConfig implements LanguageServerConfig {
         return isSuccessfullyInstalled() ? null : "Launch script file does not exist";
       }
     };
+  }
+
+  @Override
+  public String getProjectsRoot() {
+    return rootDirPathProvider.get();
   }
 }
