@@ -9,7 +9,6 @@
  **********************************************************************/
 import { WorkspaceNameHandler } from '../..';
 import 'reflect-metadata';
-import * as workspaceHandling from '../../testsLibrary/WorkspaceHandlingTests';
 import { DriverHelper } from '../../utils/DriverHelper';
 import { e2eContainer } from '../../inversify.config';
 import { CLASSES } from '../../inversify.types';
@@ -20,7 +19,10 @@ import { PreferencesHandler } from '../../utils/PreferencesHandler';
 import { Editor } from '../../pageobjects/ide/Editor';
 import { ProjectTree } from '../../pageobjects/ide/ProjectTree';
 import { Key } from 'selenium-webdriver';
+import { WorkspaceHandlingTests } from '../../testsLibrary/WorkspaceHandlingTests';
+import { Logger } from '../../utils/Logger';
 
+const workspaceHandlingTests: WorkspaceHandlingTests = e2eContainer.get(CLASSES.WorkspaceHandlingTests);
 const driverHelper: DriverHelper = e2eContainer.get(CLASSES.DriverHelper);
 const ide: Ide = e2eContainer.get(CLASSES.Ide);
 const preferencesHandler: PreferencesHandler = e2eContainer.get(CLASSES.PreferencesHandler);
@@ -34,8 +36,7 @@ const subRootFolder: string = 'app';
 const pathToFile: string = `${sampleName}`;
 const fileName: string = 'test.sh';
 
-// skipped until issue: https://github.com/eclipse/che/issues/19376 resolved
-suite.skip(`The 'VscodeShellcheckPlugin' test`, async () => {
+suite(`The 'VscodeShellcheckPlugin' test`, async () => {
     suite('Create workspace', async () => {
         test('Set shellcheck path', async () => {
             const shellcheckExecutablePathPropertyName: string = 'shellcheck.executablePath';
@@ -85,14 +86,14 @@ suite.skip(`The 'VscodeShellcheckPlugin' test`, async () => {
     });
 
     suite('Stopping and deleting the workspace', async () => {
-        let workspaceName = 'not defined';
-        suiteSetup(async () => {
-            workspaceName = await WorkspaceNameHandler.getNameFromUrl();
-        });
+        test('Stop and remove workspace', async () => {
+            if (TestConstants.TS_DELETE_PLUGINS_TEST_WORKSPACE === 'true') {
+                let workspaceName = await WorkspaceNameHandler.getNameFromUrl();
+                await workspaceHandlingTests.stopAndRemoveWorkspace(workspaceName);
+                return;
+            }
 
-        test(`Stop and remowe workspace`, async () => {
-            await workspaceHandling.stopAndRemoveWorkspace(workspaceName);
+            Logger.info(`As far as the "TS_DELETE_PLUGINS_TEST_WORKSPACE" value is "false the workspace deletion is skipped"`);
         });
     });
-
 });

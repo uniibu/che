@@ -25,9 +25,8 @@ import { GitHubUtil } from '../../utils/VCS/github/GitHubUtil';
 import { TestWorkspaceUtil } from '../../utils/workspace/TestWorkspaceUtil';
 import { TopMenu } from '../../pageobjects/ide/TopMenu';
 import { TimeoutConstants } from '../../TimeoutConstants';
-import { Dashboard } from '../../pageobjects/dashboard/Dashboard';
 import { BrowserTabsUtil } from '../../utils/BrowserTabsUtil';
-import { By } from 'selenium-webdriver';
+import { Dashboard } from '../..';
 
 const driverHelper: DriverHelper = e2eContainer.get(CLASSES.DriverHelper);
 const ide: Ide = e2eContainer.get(CLASSES.Ide);
@@ -60,14 +59,15 @@ suite('Git with ssh workflow', async () => {
 
     test('Login into workspace and open tree container', async () => {
         await dashboard.openDashboard();
-        await dashboard.waitPage();
         await browserTabsUtil.navigateTo(workspacePrefixUrl + wsNameCheckGeneratingKeys);
         await ide.waitWorkspaceAndIde();
         await projectTree.openProjectTreeContainer();
-        await driverHelper.wait(TimeoutConstants.TS_SELENIUM_LOAD_PAGE_TIMEOUT);
+        await driverHelper.wait(TimeoutConstants.TS_PROJECT_TREE_TIMEOUT);
     });
 
     test('Generate a SSH key', async () => {
+        await topMenu.selectOption('View', 'Find Command...');
+        // workaround - reopen 'Find Command' container - https://github.com/eclipse/che/issues/19793
         await topMenu.selectOption('View', 'Find Command...');
         await quickOpenContainer.typeAndSelectSuggestion('SSH', 'SSH: Generate Key...');
         await ide.waitNotificationAndClickOnButton('Key pair successfully generated, do you want to view the public key', 'View');
@@ -75,24 +75,19 @@ suite('Git with ssh workflow', async () => {
         await editor.waitText('Untitled-0', 'ssh-rsa');
     });
 
+
     test('Add a SSH key to GitHub side and clone by ssh link', async () => {
         const sshName: string = WorkspaceNameHandler.generateWorkspaceName('test-SSH-', 5);
         const publicSshKey = await cheGitAPI.getPublicSSHKey();
         await gitHubUtils.addPublicSshKeyToUserAccount(TestConstants.TS_GITHUB_TEST_REPO_ACCESS_TOKEN, sshName, publicSshKey);
         await cloneTestRepo();
-        // workaround for issue: https://github.com/eclipse/che/issues/19544
-        await ide.waitNotificationAndClickOnButton('Would you like to open the cloned repository?', 'Open');
-        await ide.waitIde();
+
     });
 
     test('Change commit and push', async function changeCommitAndPushFunc() {
         const currentDate: string = Date.now().toString();
-        await projectTree.clickOnItem('Spoon-Knife/' + committedFile);
-        await editor.waitEditorOpened(committedFile);
-        await editor.waitTab(committedFile);
-        await editor.type(committedFile, 'D' + '\n', 1);
+        await projectTree.expandPathAndOpenFile('Spoon-Knife', committedFile);
         await editor.type(committedFile, currentDate + '\n', 1);
-        await editor.waitText(committedFile, currentDate);
         await gitPlugin.openGitPluginContainer();
         await gitPlugin.waitChangedFileInChagesList(committedFile);
         await gitPlugin.stageAllChanges(committedFile);
@@ -116,12 +111,10 @@ suite('Git with ssh workflow', async () => {
         await browserTabsUtil.navigateTo(workspacePrefixUrl + wsNameCheckPropagatingKeys);
         await ide.waitWorkspaceAndIde();
         await projectTree.openProjectTreeContainer();
-        await driverHelper.wait(TimeoutConstants.TS_SELENIUM_LOAD_PAGE_TIMEOUT);
+        await driverHelper.wait(TimeoutConstants.TS_PROJECT_TREE_TIMEOUT);
         await cloneTestRepo();
-        // workaround for issue: https://github.com/eclipse/che/issues/19544
-        await ide.waitNotificationAndClickOnButton('Would you like to open the cloned repository?', 'Open');
-        await ide.waitIde();
-        await waitClonedProject();
+        await projectTree.expandPath('Spoon-Knife');
+        await projectTree.waitItem('Spoon-Knife/README.md');
     });
 
 });
@@ -137,14 +130,9 @@ async function cloneTestRepo() {
     const confirmMessage = 'Clone from URL';
 
     await topMenu.selectOption('View', 'Find Command...');
+    // workaround - reopen 'Find Command' container - https://github.com/eclipse/che/issues/19793
+    await topMenu.selectOption('View', 'Find Command...');
     await quickOpenContainer.typeAndSelectSuggestion('clone', 'Git: Clone');
     await quickOpenContainer.typeAndSelectSuggestion(sshLinkToRepo, confirmMessage);
     await gitPlugin.clickOnSelectRepositoryButton();
-}
-
-// workaround related to multi-root, issue: https://github.com/eclipse/che/issues/19544
-async function waitClonedProject() {
-    const pathToClonedProjectLocator : By = By.css(`span[title='/projects/Spoon-Knife']`);
-
-    await driverHelper.waitVisibility(pathToClonedProjectLocator, TimeoutConstants.TS_EXPAND_PROJECT_TREE_ITEM_TIMEOUT);
 }

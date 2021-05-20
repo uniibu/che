@@ -9,7 +9,6 @@
  **********************************************************************/
 import { WorkspaceNameHandler } from '../..';
 import 'reflect-metadata';
-import * as workspaceHandling from '../../testsLibrary/WorkspaceHandlingTests';
 import { e2eContainer } from '../../inversify.config';
 import { CLASSES } from '../../inversify.types';
 import { Ide, LeftToolbarButton } from '../../pageobjects/ide/Ide';
@@ -21,7 +20,10 @@ import { Editor } from '../../pageobjects/ide/Editor';
 import { TopMenu } from '../../pageobjects/ide/TopMenu';
 import { DebugView } from '../../pageobjects/ide/DebugView';
 import { BrowserTabsUtil } from '../../utils/BrowserTabsUtil';
+import { WorkspaceHandlingTests } from '../../testsLibrary/WorkspaceHandlingTests';
+import { Logger } from '../../utils/Logger';
 
+const workspaceHandlingTests: WorkspaceHandlingTests = e2eContainer.get(CLASSES.WorkspaceHandlingTests);
 const ide: Ide = e2eContainer.get(CLASSES.Ide);
 const projectTree: ProjectTree = e2eContainer.get(CLASSES.ProjectTree);
 const editor: Editor = e2eContainer.get(CLASSES.Editor);
@@ -93,13 +95,14 @@ suite(`The 'PhpPlugin' tests`, async () => {
     });
 
     suite('Stopping and deleting the workspace', async () => {
-        test(`Stop and remove workspace`, async () => {
-            let workspaceName = 'not defined';
-            suiteSetup(async () => {
-                workspaceName = await WorkspaceNameHandler.getNameFromUrl();
-            });
+        test('Stop and remove workspace', async () => {
+            if (TestConstants.TS_DELETE_PLUGINS_TEST_WORKSPACE === 'true') {
+                let workspaceName = await WorkspaceNameHandler.getNameFromUrl();
+                await workspaceHandlingTests.stopAndRemoveWorkspace(workspaceName);
+                return;
+            }
 
-            await workspaceHandling.stopAndRemoveWorkspace(workspaceName);
+            Logger.info(`As far as the "TS_DELETE_PLUGINS_TEST_WORKSPACE" value is "false the workspace deletion is skipped"`);
         });
     });
 });

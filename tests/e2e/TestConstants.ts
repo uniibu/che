@@ -110,11 +110,6 @@ export const TestConstants = {
     TS_OCP_LOGIN_PAGE_PROVIDER_TITLE: process.env.TS_OCP_LOGIN_PAGE_PROVIDER_TITLE || '',
 
     /**
-     * Log into CHE in MultiUser mode, "false" by default.
-     */
-    TS_SELENIUM_MULTIUSER: process.env.TS_SELENIUM_MULTIUSER === 'true',
-
-    /**
      * Path to folder with load tests execution report.
      */
     TS_SELENIUM_LOAD_TEST_REPORT_FOLDER: process.env.TS_SELENIUM_LOAD_TEST_REPORT_FOLDER || './load-test-folder',
@@ -233,6 +228,11 @@ export const TestConstants = {
     /**
      * This variable specifies that run test is used for load testing and that all artifacts will be sent to ftp client.
      */
-    TS_LOAD_TESTS: process.env.TS_LOAD_TESTS || 'false'
+    TS_LOAD_TESTS: process.env.TS_LOAD_TESTS || 'false',
+
+    /**
+     * This variable determines whether to delete the workspace after the test or leave the workspace running.
+     */
+    TS_DELETE_PLUGINS_TEST_WORKSPACE: process.env.TS_DELETE_PLUGINS_TEST_WORKSPACE || 'true'
 
 };

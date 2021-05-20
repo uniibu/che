@@ -9,7 +9,7 @@
  **********************************************************************/
 import { WorkspaceNameHandler } from '../..';
 import 'reflect-metadata';
-import * as workspaceHandling from '../../testsLibrary/WorkspaceHandlingTests';
+
 import { DriverHelper } from '../../utils/DriverHelper';
 import { e2eContainer } from '../../inversify.config';
 import { CLASSES } from '../../inversify.types';
@@ -23,7 +23,10 @@ import { TopMenu } from '../../pageobjects/ide/TopMenu';
 import { DebugView } from '../../pageobjects/ide/DebugView';
 import { Terminal } from '../../pageobjects/ide/Terminal';
 import { BrowserTabsUtil } from '../../utils/BrowserTabsUtil';
+import { WorkspaceHandlingTests } from '../../testsLibrary/WorkspaceHandlingTests';
+import { Logger } from '../../utils/Logger';
 
+const workspaceHandlingTests: WorkspaceHandlingTests = e2eContainer.get(CLASSES.WorkspaceHandlingTests);
 const driverHelper: DriverHelper = e2eContainer.get(CLASSES.DriverHelper);
 const ide: Ide = e2eContainer.get(CLASSES.Ide);
 const projectTree: ProjectTree = e2eContainer.get(CLASSES.ProjectTree);
@@ -152,13 +155,14 @@ suite(`The 'TypescriptPlugin and Node-debug' tests`, async () => {
     });
 
     suite('Stopping and deleting the workspace', async () => {
-        let workspaceName = 'not defined';
-        suiteSetup(async () => {
-            workspaceName = await WorkspaceNameHandler.getNameFromUrl();
-        });
+        test('Stop and remove workspace', async () => {
+            if (TestConstants.TS_DELETE_PLUGINS_TEST_WORKSPACE === 'true') {
+                let workspaceName = await WorkspaceNameHandler.getNameFromUrl();
+                await workspaceHandlingTests.stopAndRemoveWorkspace(workspaceName);
+                return;
+            }
 
-        test(`Stop and remove workspace`, async () => {
-            await workspaceHandling.stopAndRemoveWorkspace(workspaceName);
+            Logger.info(`As far as the "TS_DELETE_PLUGINS_TEST_WORKSPACE" value is "false the workspace deletion is skipped"`);
         });
     });
 });
